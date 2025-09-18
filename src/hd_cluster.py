@@ -1,6 +1,6 @@
 import os, time, logging, math
 from tqdm import tqdm
-
+import torch
 import numpy as np
 np.random.seed(0)
 
@@ -164,6 +164,21 @@ def hd_encode_spectra_packed(spectra_intensity, spectra_mz, id_hvs_packed, lv_hv
     hd_enc_lvid_packed_cuda_kernel(
         ((D + threads - 1) // threads, min(N, max_block)), (threads,), 
         (id_hvs_packed, lv_hvs_packed, spectra_mz, spectra_intensity, max_peaks_used, encoded_spectra, N, Q, D, packed_dim))
+    '''
+    with open('encode_dump.txt', "a") as f:
+        f.write("\n\nD: %s" % D)
+        f.write("\nThreads: %s" % threads)
+        f.write("\nN: %s" % N)
+        f.write("\nQ: %s" % Q)
+        f.write("\nPacked_dim: %s" % packed_dim)
+        f.write("\nMax_blocks: %s" % max_block)
+        f.write("\nid_hvs_packed: %s" % id_hvs_packed)
+        f.write("\nlv_hvs_packed: %s" % lvls_hvs_packed)
+        f.write("\nSpectra_mz: %s" %spectra_mz)
+        f.write("\nSpectra_intensity: %s" % spectra_intensity)
+        f.write("\nMax_peaks_used: %s" % max_peaks_used)
+        f.write("\nencdoed_spectra: %s" % encoded_spectra)
+    '''
 
     if output_type=='numpy':
         return encoded_spectra.reshape(N, packed_dim).get()
@@ -315,6 +330,34 @@ def fast_nb_cosine_dist_condense(hvs, prec_mz, prec_tol, output_type, stream=Non
         dist = dist_d.get()
 
     return dist
+
+
+def cosine_similarity_torch(X, prec_mz, prec_tol, device="cpu"):
+    """
+    PyTorch version (runs on CPU or GPU).
+    
+    X : tensor of shape (N, d)
+    prec_mz : tensor of shape (N,)
+    prec_tol : float
+    """
+    X = X.to(device).float()
+    prec_mz = prec_mz.to(device).float()
+
+    # Row normalize
+    X_norm = X / (X.norm(dim=1, keepdim=True) + 1e-8)
+
+    # Cosine similarity
+    sim = X_norm @ X_norm.T   # (N,N)
+
+    # Apply precursor filter
+    N = X.size(0)
+    for i in range(N):
+        for j in range(i+1, N):
+            if torch.abs((prec_mz[i] - prec_mz[j]) / prec_mz[j]) >= prec_tol:
+                sim[i, j] = 0.0
+                sim[j, i] = 0.0
+
+    return sim
 
 
 def get_dim(min_mz: float, max_mz: float, bin_size: float) \
@@ -590,8 +633,19 @@ def cluster_bucket(
         bucket_prec_mz = data_dict['prec_mz'][bucket_slice[0]: bucket_slice[1]]
         bucket_rt_time = data_dict['rt_time'][bucket_slice[0]: bucket_slice[1]]
         
+
+        # def cosine_similarity_torch(X, prec_mz, prec_tol, device="cpu"):
+
         pw_dist = fast_nb_cosine_dist_mask(bucket_hv, bucket_prec_mz, config.precursor_tol[0], output_type)
+        # print("cosine dist\n")
+        # print(pw_dist.get())
+        # cos_dist = cosine_similarity_torch(torch.from_numpy(bucket_hv.astype(np.int64)), bucket_prec_mz, config.precursor_tol[0], device='cpu')
         cluster_func.fit(pw_dist) #
+        # print(pw_dist)
+        # with open('pw_dump.txt', "a") as f:
+        #     f.write(str(pw_dist.get()))      
+
+
         
         cluster_labels_refined = refine_cluster(
             bucket_cluster_label = cluster_func.labels_, 

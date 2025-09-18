@@ -1,5 +1,6 @@
 import logging, time, os, glob
 from typing import  Optional
+import spectrum_module
 
 import tqdm
 import numpy as np
@@ -553,16 +554,28 @@ def load_process_single(
         spec_list = mzml_load(file)
 
     if if_preprocess:
-        spec_list = preprocess_read_spectra_list(
+        spec_list = spectrum_module.preprocess_read_spectra_list(
             spectra_list = spec_list,
-            min_peaks = min_peaks, min_mz_range = min_mz_range,
+            min_peaks = min_peaks,
+            min_mz_range = min_mz_range,
             mz_interval = mz_interval,
-            mz_min = mz_min, mz_max = mz_max,
+            mz_min = mz_min, 
+            mz_max = mz_max,
             remove_precursor_tolerance = remove_precursor_tolerance,
-            min_intensity = min_intensity,
+            min_intensity_frac = min_intensity,
             max_peaks_used = max_peaks_used,
             scaling = scaling)
-            
+          
+        # spec_list = preprocess_read_spectra_list(
+        #     spectra_list = spec_list,
+        #     min_peaks = min_peaks, min_mz_range = min_mz_range,
+        #     mz_interval = mz_interval,
+        #     mz_min = mz_min, mz_max = mz_max,
+        #     remove_precursor_tolerance = remove_precursor_tolerance,
+        #     min_intensity = min_intensity,
+        #     max_peaks_used = max_peaks_used,
+        #     scaling = scaling)
+    
     return spec_list
 
 

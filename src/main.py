@@ -29,6 +29,8 @@ def main(args: Union[str, List[str]] = None) -> int:
     logging.getLogger('numba').setLevel(logging.WARNING)
     logging.getLogger('cupy').setLevel(logging.WARNING)
     logging.getLogger('joblib').setLevel(logging.WARNING)
+    logging.getLogger("sklearn").setLevel(logging.WARNING)
+    logging.getLogger('root').setLevel(logging.WARNING)
 
     # Load the configuration.
     config.parse(args)
